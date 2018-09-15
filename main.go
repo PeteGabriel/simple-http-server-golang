@@ -1,14 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
 )
 
 var templates *template.Template
+var validPath *regexp.Regexp
 
 func init() {
 	// call ParseFiles once at program initialization,
@@ -16,6 +19,9 @@ func init() {
 	// Then we can use the ExecuteTemplate method to render
 	//a specific template.
 	templates = template.Must(template.ParseFiles("edit.html", "view.html"))
+
+	// small protection against user input
+	validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 }
 
 type page struct {
@@ -33,7 +39,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/view/"):]
+	title, err := getTitle(w, r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	p, err := loadPage(title)
 	if err != nil {
 		// The http.Redirect function adds an HTTP status code
@@ -46,10 +56,14 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/edit/"):]
+	title, err := getTitle(w, r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	b := r.FormValue("body")
 	p := &page{title: title, body: []byte(b)}
-	err := p.save()
+	err = p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -58,7 +72,11 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request) {
-	title := r.URL.Path[len("/edit/"):]
+	title, err := getTitle(w, r)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
 	p, err := loadPage(title)
 	if err != nil {
 		p = &page{title: title}
@@ -88,4 +106,12 @@ func loadPage(t string) (*page, error) {
 		return nil, err
 	}
 	return &page{title: t, body: b}, nil
+}
+
+func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
+	m := validPath.FindStringSubmatch(r.URL.Path)
+	if m == nil {
+		return "", errors.New("Invalid Page Title")
+	}
+	return m[2], nil
 }
