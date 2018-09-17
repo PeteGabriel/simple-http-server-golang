@@ -23,16 +23,6 @@ func init() {
 	validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 }
 
-type Page struct {
-	Title string
-	Body  []byte
-}
-
-func (p *Page) save() error {
-	filename := p.Title + ".txt"
-	return ioutil.WriteFile(filename, p.Body, 0600)
-}
-
 func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
 }
@@ -50,7 +40,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request, ttl string) {
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, ttl string) {
-	b := r.FormValue("Body")
+	b := r.FormValue("body")
 	p := &Page{Title: ttl, Body: []byte(b)}
 	err := p.save()
 	if err != nil {
