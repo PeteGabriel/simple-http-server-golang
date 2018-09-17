@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"io/ioutil"
@@ -24,14 +23,14 @@ func init() {
 	validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 }
 
-type page struct {
-	title string
-	body  []byte
+type Page struct {
+	Title string
+	Body  []byte
 }
 
-func (p *page) save() error {
-	filename := p.title + ".txt"
-	return ioutil.WriteFile(filename, p.body, 0600)
+func (p *Page) save() error {
+	filename := p.Title + ".txt"
+	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
@@ -51,8 +50,8 @@ func viewHandler(w http.ResponseWriter, r *http.Request, ttl string) {
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, ttl string) {
-	b := r.FormValue("body")
-	p := &page{title: ttl, body: []byte(b)}
+	b := r.FormValue("Body")
+	p := &Page{Title: ttl, Body: []byte(b)}
 	err := p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -64,7 +63,7 @@ func saveHandler(w http.ResponseWriter, r *http.Request, ttl string) {
 func editHandler(w http.ResponseWriter, r *http.Request, ttl string) {
 	p, err := loadPage(ttl)
 	if err != nil {
-		p = &page{title: ttl}
+		p = &Page{Title: ttl}
 	}
 	renderTemplate(w, "edit", p)
 }
@@ -87,7 +86,7 @@ func makeHandler(fn func(w http.ResponseWriter, r *http.Request, ttl string)) ht
 	}
 }
 
-func renderTemplate(w http.ResponseWriter, tpl string, p *page) {
+func renderTemplate(w http.ResponseWriter, tpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -95,19 +94,11 @@ func renderTemplate(w http.ResponseWriter, tpl string, p *page) {
 	}
 }
 
-func loadPage(t string) (*page, error) {
+func loadPage(t string) (*Page, error) {
 	fn := t + ".txt"
 	b, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, err
 	}
-	return &page{title: t, body: b}, nil
-}
-
-func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
-	m := validPath.FindStringSubmatch(r.URL.Path)
-	if m == nil {
-		return "", errors.New("Invalid Page Title")
-	}
-	return m[2], nil
+	return &Page{Title: t, Body: b}, nil
 }
