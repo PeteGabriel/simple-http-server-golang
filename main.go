@@ -38,57 +38,53 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
 }
 
-func viewHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	p, err := loadPage(title)
+func viewHandler(w http.ResponseWriter, r *http.Request, ttl string) {
+	p, err := loadPage(ttl)
 	if err != nil {
 		// The http.Redirect function adds an HTTP status code
 		// of http.StatusFound (302) and a Location header to
 		// the HTTP response.
-		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
+		http.Redirect(w, r, "/edit/"+ttl, http.StatusFound)
 		return
 	}
 	renderTemplate(w, "view", p)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
+func saveHandler(w http.ResponseWriter, r *http.Request, ttl string) {
 	b := r.FormValue("body")
-	p := &page{title: title, body: []byte(b)}
-	err = p.save()
+	p := &page{title: ttl, body: []byte(b)}
+	err := p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/view/"+title, http.StatusFound)
+	http.Redirect(w, r, "/view/"+ttl, http.StatusFound)
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request) {
-	title, err := getTitle(w, r)
+func editHandler(w http.ResponseWriter, r *http.Request, ttl string) {
+	p, err := loadPage(ttl)
 	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	p, err := loadPage(title)
-	if err != nil {
-		p = &page{title: title}
+		p = &page{title: ttl}
 	}
 	renderTemplate(w, "edit", p)
 }
 
 func main() {
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-	//http.HandleFunc("/save/", saveHandler)
+	http.HandleFunc("/view/", makeHandler(viewHandler))
+	http.HandleFunc("/save/", makeHandler(saveHandler))
+	http.HandleFunc("/edit/", makeHandler(editHandler))
 	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func makeHandler(fn func(w http.ResponseWriter, r *http.Request, ttl string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		m := validPath.FindStringSubmatch(r.URL.Path)
+		if m == nil {
+			http.NotFound(w, r)
+			return
+		}
+		fn(w, r, m[2])
+	}
 }
 
 func renderTemplate(w http.ResponseWriter, tpl string, p *page) {
