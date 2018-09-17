@@ -25,4 +25,4 @@ Http server in golang that lets you save documents, edit/create and view them.
 - [ ] Spruce up the page templates by making them valid HTML and adding some CSS rules.
 
 - [ ] Implement inter-page linking by converting instances of [PageName] to 
-<a href="/view/PageName">PageName</a>. (hint: regexp.ReplaceAllFunc)
+`<a href="/view/PageName">PageName</a>`. (hint: regexp.ReplaceAllFunc)
